@@ -1,0 +1,593 @@
+<title>Conway's Spiders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@1&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one night-garden screen. The board is the stage; a field-notebook column beside it (stacked below on phones). Single dark theme by choice. */
+:root {
+  --ground: #0d1311;
+  --panel: #141c19;
+  --rule: #26322d;
+  --ink: #dbe2d6;
+  --muted: #84928a;
+  --lichen: #a9d86e;
+  --caught: #f2e3b3;
+  --silk: #c7d2de;
+  --rust: #c8643c;
+  --leg: #9c7e63;
+  --display: "IM Fell English SC", "Iowan Old Style", Georgia, serif;
+  --display-it: "IM Fell English", "Iowan Old Style", Georgia, serif;
+  --body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font: 15px/1.5 var(--body);
+  padding-inline: 16px;
+  padding-block: 20px 28px;
+  box-sizing: border-box;
+}
+*, *::before, *::after { box-sizing: inherit; }
+.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 24px; }
+h1 { font: 400 clamp(30px, 4.4vw, 46px)/1 var(--display); margin: 0; letter-spacing: .01em; text-wrap: balance; }
+h1 em { font-family: var(--display-it); font-style: italic; color: var(--rust); }
+.rule { font: 500 12px/1.4 var(--mono); color: var(--muted); letter-spacing: .06em; }
+.rule b { color: var(--ink); font-weight: 500; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+@media (max-width: 860px) { .main { grid-template-columns: minmax(0, 1fr); } }
+
+.stage { position: relative; min-width: 0; }
+#board {
+  display: block; width: 100%; max-width: 100%;
+  aspect-ratio: 144 / 90;
+  background: radial-gradient(ellipse at 50% 45%, #13201b 0%, var(--ground) 75%);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  touch-action: none;
+  cursor: crosshair;
+}
+.hint { margin: 8px 2px 0; font-size: 13px; color: var(--muted); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+button, select {
+  font: 500 13px/1 var(--body);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--muted); }
+button:focus-visible, select:focus-visible, input:focus-visible + span, input[type=range]:focus-visible { outline: 2px solid var(--lichen); outline-offset: 2px; }
+#play { background: var(--lichen); color: #10170f; border-color: var(--lichen); min-width: 84px; }
+.speed { display: flex; align-items: center; gap: 8px; font: 12px var(--mono); color: var(--muted); }
+.speed input { accent-color: var(--lichen); width: 110px; }
+#gps { color: var(--ink); min-width: 5ch; font-variant-numeric: tabular-nums; }
+
+aside { display: grid; gap: 18px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; padding: 14px 16px; display: grid; gap: 10px; }
+h2 { margin: 0; font: 400 19px/1.1 var(--display); letter-spacing: .02em; }
+.label { font: 500 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+
+.tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.tools label { position: relative; }
+.tools input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.tools span { display: block; text-align: center; padding: 8px 2px; font-size: 12.5px; border: 1px solid var(--rule); border-radius: 3px; color: var(--muted); }
+.tools input:checked + span { color: var(--ink); border-color: var(--lichen); background: color-mix(in srgb, var(--lichen) 12%, transparent); }
+
+.toggle { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); cursor: pointer; }
+.toggle input { accent-color: var(--lichen); margin-top: 3px; }
+.toggle b { color: var(--ink); font-weight: 500; }
+
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 0; }
+.stats div { display: grid; gap: 3px; }
+.stats dt { font: 500 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.stats dd { margin: 0; font: 500 20px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.k-cells { color: var(--lichen); }
+.k-spiders { color: var(--rust); }
+
+#chart { width: 100%; height: 96px; display: block; }
+.legend { display: flex; gap: 14px; font: 12px var(--mono); color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 2px; vertical-align: middle; margin-right: 6px; }
+
+.notes { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+.notes b { color: var(--ink); font-weight: 500; }
+.species { font: italic 15px/1.3 var(--display-it); color: var(--muted); margin: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Conway's <em>Spiders</em></h1>
+    <div class="rule">RULE <b>B3/S23</b> · TORUS <b>144×90</b> · BIRTHS BLOCKED ON SILK</div>
+  </header>
+
+  <div class="main">
+    <section class="stage">
+      <canvas id="board" aria-label="Game of Life board with spiders"></canvas>
+      <p class="hint" id="hint">Drag to draw cells. Space plays or pauses, the period key steps one generation.</p>
+      <div class="toolbar">
+        <button id="play" type="button">Pause</button>
+        <button id="step" type="button">Step</button>
+        <select id="preset" aria-label="Starting scene">
+          <option value="soup">Primordial soup</option>
+          <option value="gun">Glider gun vs. orb web</option>
+          <option value="acorn">Acorn and three hunters</option>
+          <option value="empty">Empty garden</option>
+        </select>
+        <button id="reset" type="button">Reset scene</button>
+        <label class="speed" for="speed">SPEED <input id="speed" type="range" min="1" max="40" value="10"> <span id="gps">10 g/s</span></label>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card">
+        <span class="label">Tool</span>
+        <div class="tools" role="radiogroup" aria-label="Drawing tool">
+          <label><input type="radio" name="tool" id="tool-cells" value="cells" checked><span>Cells</span></label>
+          <label><input type="radio" name="tool" id="tool-spider" value="spider"><span>Spider</span></label>
+          <label><input type="radio" name="tool" id="tool-silk" value="silk"><span>Silk</span></label>
+          <label><input type="radio" name="tool" id="tool-erase" value="erase"><span>Erase</span></label>
+        </div>
+        <label class="toggle" for="breeze"><input type="checkbox" id="breeze" checked><span><b>Breeze.</b> A stray glider drifts in every 40 generations.</span></label>
+      </div>
+
+      <div class="card">
+        <h2>Field census</h2>
+        <dl class="stats">
+          <div><dt>Generation</dt><dd id="s-gen">0</dd></div>
+          <div><dt>Cells</dt><dd id="s-cells" class="k-cells">0</dd></div>
+          <div><dt>Spiders</dt><dd id="s-spiders" class="k-spiders">0</dd></div>
+          <div><dt>Cells eaten</dt><dd id="s-eaten">0</dd></div>
+          <div><dt>Caught in silk</dt><dd id="s-caught">0</dd></div>
+          <div><dt>Silk cover</dt><dd id="s-silk">0%</dd></div>
+        </dl>
+        <canvas id="chart" aria-label="Cells and spiders over the last 400 generations"></canvas>
+        <div class="legend"><span><i style="background:var(--lichen)"></i>cells</span><span><i style="background:var(--rust)"></i>spiders</span><span>last 400 gen.</span></div>
+      </div>
+
+      <div class="card">
+        <h2>How the garden works</h2>
+        <p class="species">Araneus vitae, the cross-backed life spider</p>
+        <ul class="notes">
+          <li>Cells follow Conway's rules, except <b>no cell is born on silk</b>, and a living cell that lands on silk is <b>caught</b> and cannot die.</li>
+          <li>Spiders hunt cells within 7 squares and feel any caught cell within 24. Each meal restores energy.</li>
+          <li>Idle spiders spin <b>orb webs</b> in widening spirals. Silk fades after about 250 generations.</li>
+          <li>A well-fed spider lays a new spider. A starving one dies, and its body seeds a patch of new cells.</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+const C = 144, R = 90, N = C * R, TAU = Math.PI * 2;
+const SILK_T = 0.35, MAX_SPIDERS = 70;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL = { lichen: css('--lichen'), caught: css('--caught'), silk: css('--silk'), rust: css('--rust'), leg: css('--leg'), rule: css('--rule'), muted: css('--muted') };
+
+let cells = new Uint8Array(N), next = new Uint8Array(N), silk = new Float32Array(N);
+let spiders = [], gen = 0, eaten = 0, caught = [];
+const hist = { cells: [], spiders: [] };
+let running = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+let gps = 10, acc = 0;
+
+const idx = (x, y) => ((y % R + R) % R) * C + ((x % C + C) % C);
+const wrapD = (d, m) => d > m / 2 ? d - m : d < -m / 2 ? d + m : d;
+const rand = (a, b) => a + Math.random() * (b - a);
+
+// ---------- patterns ----------
+function rle(str, ox, oy, fx = 1, fy = 1) {
+  let x = 0, y = 0, n = '';
+  for (const ch of str) {
+    if (ch >= '0' && ch <= '9') { n += ch; continue; }
+    const k = n ? parseInt(n) : 1; n = '';
+    if (ch === 'b') x += k;
+    else if (ch === 'o') { for (let i = 0; i < k; i++) cells[idx(ox + fx * (x + i), oy + fy * y)] = 1; x += k; }
+    else if (ch === '$') { y += k; x = 0; }
+    else if (ch === '!') break;
+  }
+}
+const GLIDER = 'bo$2bo$3o!';
+const GUN = '24bo$22bobo$12b2o6b2o12b2o$11bo3bo4b2o12b2o$2o8bo5bo3b2o$2o8bo3bob2o4bobo$10bo5bo7bo$11bo3bo$12b2o!';
+const ACORN = 'bo5b$3bo3b$2o2b3o!';
+
+function orbWeb(cx, cy, r) {
+  const lay = (x, y) => { const i = idx(Math.round(x), Math.round(y)); silk[i] = 1; };
+  for (let s = 0; s < 14; s++) {
+    const a = s / 14 * TAU;
+    for (let t = 0; t <= r; t += 0.5) lay(cx + Math.cos(a) * t, cy + Math.sin(a) * t);
+  }
+  for (let rr = 2; rr <= r; rr += 2.2) for (let a = 0; a < TAU; a += 0.6 / rr) lay(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+}
+
+function makeSpider(x, y, e = 1) {
+  return { x, y, a: rand(0, TAU), e, age: 0, mode: 'wander', modeT: rand(5, 20), spin: 0, phase: rand(0, TAU), target: -1, scan: 0, moving: 1 };
+}
+
+function scene(name) {
+  cells.fill(0); silk.fill(0); spiders = []; gen = 0; eaten = 0; acc = 0;
+  hist.cells.length = 0; hist.spiders.length = 0;
+  if (name === 'soup') {
+    for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) {
+      const dx = (x - C / 2) / (C * 0.42), dy = (y - R / 2) / (R * 0.42);
+      if (dx * dx + dy * dy < 1 && Math.random() < 0.3) cells[y * C + x] = 1;
+    }
+    for (let i = 0; i < 7; i++) spiders.push(makeSpider(rand(0, C), rand(0, R)));
+  } else if (name === 'gun') {
+    rle(GUN, 6, 8);
+    orbWeb(100, 58, 14);
+    const s = makeSpider(100, 58, 1.3); s.mode = 'wait'; spiders.push(s);
+  } else if (name === 'acorn') {
+    rle(ACORN, 68, 42);
+    spiders.push(makeSpider(20, 20), makeSpider(124, 22), makeSpider(72, 80));
+  }
+  updateCaught(); sample(); renderStats();
+}
+
+// ---------- life ----------
+function lifeStep() {
+  for (let y = 0; y < R; y++) {
+    const ym = ((y - 1 + R) % R) * C, y0 = y * C, yp = ((y + 1) % R) * C;
+    for (let x = 0; x < C; x++) {
+      const xm = (x - 1 + C) % C, xp = (x + 1) % C;
+      const n = cells[ym + xm] + cells[ym + x] + cells[ym + xp] + cells[y0 + xm] + cells[y0 + xp] + cells[yp + xm] + cells[yp + x] + cells[yp + xp];
+      const i = y0 + x, onSilk = silk[i] > SILK_T;
+      next[i] = cells[i] ? (n === 2 || n === 3 || onSilk ? 1 : 0) : (n === 3 && !onSilk ? 1 : 0);
+    }
+  }
+  [cells, next] = [next, cells];
+  for (let i = 0; i < N; i++) if (silk[i] > 0) silk[i] = Math.max(0, silk[i] - 0.004);
+  gen++;
+  if (document.getElementById('breeze').checked && gen % 40 === 0) {
+    const fx = Math.random() < 0.5 ? 1 : -1, fy = Math.random() < 0.5 ? 1 : -1;
+    const edgeX = Math.random() < 0.5;
+    rle(GLIDER, edgeX ? (fx > 0 ? 1 : C - 2) : Math.floor(rand(0, C)), edgeX ? Math.floor(rand(0, R)) : (fy > 0 ? 1 : R - 2), fx, fy);
+  }
+  updateCaught();
+  sample();
+}
+
+function updateCaught() {
+  caught.length = 0;
+  for (let i = 0; i < N; i++) if (cells[i] && silk[i] > SILK_T) caught.push(i);
+}
+
+function sample() {
+  let pop = 0; for (let i = 0; i < N; i++) pop += cells[i];
+  hist.cells.push(pop); hist.spiders.push(spiders.length);
+  if (hist.cells.length > 400) { hist.cells.shift(); hist.spiders.shift(); }
+}
+
+// ---------- spiders ----------
+function findTarget(s) {
+  let best = -1, bd = 24 * 24;
+  for (const i of caught) {
+    const dx = wrapD(i % C + 0.5 - s.x, C), dy = wrapD(((i / C) | 0) + 0.5 - s.y, R), d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; best = i; }
+  }
+  if (best >= 0) return best;
+  const cx = Math.floor(s.x), cy = Math.floor(s.y);
+  bd = 1e9;
+  for (let dy = -7; dy <= 7; dy++) for (let dx = -7; dx <= 7; dx++) {
+    const i = idx(cx + dx, cy + dy);
+    if (cells[i]) { const d = dx * dx + dy * dy; if (d < bd && d <= 49) { bd = d; best = i; } }
+  }
+  return best;
+}
+
+function steer(s, desired, rate, dg) {
+  const diff = Math.atan2(Math.sin(desired - s.a), Math.cos(desired - s.a));
+  s.a += Math.max(-rate * dg, Math.min(rate * dg, diff));
+}
+
+function updateSpider(s, dg) {
+  s.age += dg;
+  s.e -= 0.011 * dg;
+  s.scan -= dg;
+  if (s.target >= 0 && !cells[s.target]) s.target = -1;
+  if (s.scan <= 0) { s.scan = 0.3; s.target = findTarget(s); }
+  let speed = 0;
+  const here = idx(Math.floor(s.x), Math.floor(s.y));
+
+  if (s.target >= 0) {
+    const tx = s.target % C + 0.5, ty = ((s.target / C) | 0) + 0.5;
+    const dx = wrapD(tx - s.x, C), dy = wrapD(ty - s.y, R), d = Math.hypot(dx, dy);
+    steer(s, Math.atan2(dy, dx), 5, dg);
+    speed = 0.75;
+    if (d < 0.7) {
+      cells[s.target] = 0; eaten++;
+      s.e = Math.min(2, s.e + 0.3);
+      s.target = -1; s.scan = 0;
+      if (s.mode === 'spin') s.mode = 'wander';
+    }
+  } else if (s.mode === 'spin') {
+    s.a += s.spin * dg;
+    s.spin *= Math.pow(0.915, dg);
+    speed = 0.5;
+    silk[here] = Math.min(1, silk[here] + 1.2 * dg);
+    s.modeT -= dg;
+    if (s.modeT <= 0) { s.mode = 'wait'; s.modeT = rand(15, 40); }
+  } else if (s.mode === 'wait') {
+    speed = 0;
+    s.modeT -= dg;
+    if (s.modeT <= 0) { s.mode = 'wander'; s.modeT = rand(10, 30); }
+  } else {
+    s.a += (Math.random() - 0.5) * 3 * Math.sqrt(dg);
+    speed = 0.45;
+    silk[here] = Math.min(1, silk[here] + 0.08 * dg);
+    s.modeT -= dg;
+    if (s.modeT <= 0) {
+      if (Math.random() < 0.55) { s.mode = 'spin'; s.modeT = 30; s.spin = 1.3; }
+      else s.modeT = rand(10, 30);
+    }
+  }
+  s.moving = speed > 0 ? 1 : 0;
+  s.phase += dg * (speed > 0 ? 14 * speed : 0);
+  s.x = ((s.x + Math.cos(s.a) * speed * dg) % C + C) % C;
+  s.y = ((s.y + Math.sin(s.a) * speed * dg) % R + R) % R;
+}
+
+function updateSpiders(dg) {
+  const born = [];
+  for (const s of spiders) {
+    updateSpider(s, dg);
+    if (s.e > 1.6 && s.age > 30 && spiders.length + born.length < MAX_SPIDERS) {
+      s.e -= 0.8;
+      born.push(makeSpider((s.x + rand(-2, 2) + C) % C, (s.y + rand(-2, 2) + R) % R, 0.75));
+    }
+  }
+  spiders = spiders.filter(s => {
+    if (s.e > 0) return true;
+    const cx = Math.floor(s.x), cy = Math.floor(s.y);
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (Math.random() < 0.45) cells[idx(cx + dx, cy + dy)] = 1;
+    return false;
+  }).concat(born);
+}
+
+function advance(dgTotal) {
+  // Spiders move in small sub-steps so fast speeds stay smooth; life ticks on whole generations.
+  while (dgTotal > 0) {
+    const dg = Math.min(0.25, dgTotal);
+    dgTotal -= dg;
+    updateSpiders(dg);
+    acc += dg;
+    while (acc >= 1) { acc -= 1; lifeStep(); }
+  }
+}
+
+// ---------- drawing ----------
+const board = document.getElementById('board'), ctx = board.getContext('2d');
+const chart = document.getElementById('chart'), cctx = chart.getContext('2d');
+let cs = 6;
+
+function fit() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  board.width = Math.round(board.clientWidth * dpr);
+  board.height = Math.round(board.width * R / C);
+  cs = board.width / C;
+  chart.width = Math.round(chart.clientWidth * dpr);
+  chart.height = Math.round(chart.clientHeight * dpr);
+}
+
+function drawSilk() {
+  const buckets = [[], [], []];
+  const bucket = v => v > 0.66 ? 2 : v > 0.33 ? 1 : 0;
+  for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) {
+    const v = silk[y * C + x];
+    if (v < 0.08) continue;
+    const nb = [[1, 0], [0, 1], [1, 1], [-1, 1]];
+    let linked = false;
+    for (const [dx, dy] of nb) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || nx >= C || ny >= R) continue;
+      const w = silk[ny * C + nx];
+      if (w < 0.08) continue;
+      buckets[bucket(Math.min(v, w))].push(x, y, nx, ny);
+      linked = true;
+    }
+    if (!linked) buckets[bucket(v)].push(x, y, x, y);
+  }
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = COL.silk;
+  ctx.lineWidth = Math.max(1, cs * 0.12);
+  [0.18, 0.38, 0.7].forEach((alpha, b) => {
+    const L = buckets[b];
+    if (!L.length) return;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    for (let k = 0; k < L.length; k += 4) {
+      ctx.moveTo((L[k] + 0.5) * cs, (L[k + 1] + 0.5) * cs);
+      ctx.lineTo((L[k + 2] + 0.5) * cs + 0.01, (L[k + 3] + 0.5) * cs);
+    }
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawCells() {
+  const r = cs * 0.38;
+  ctx.fillStyle = COL.lichen;
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    if (!cells[i] || silk[i] > SILK_T) continue;
+    const x = (i % C + 0.5) * cs, y = (((i / C) | 0) + 0.5) * cs;
+    ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU);
+  }
+  ctx.fill();
+  ctx.fillStyle = COL.caught;
+  ctx.shadowColor = COL.caught; ctx.shadowBlur = cs * 0.8;
+  ctx.beginPath();
+  for (const i of caught) {
+    if (!cells[i]) continue;
+    const x = (i % C + 0.5) * cs, y = (((i / C) | 0) + 0.5) * cs;
+    ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU);
+  }
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+function drawSpider(s) {
+  const L = cs * 1.15;
+  ctx.save();
+  ctx.translate(s.x * cs, s.y * cs);
+  ctx.rotate(s.a);
+  ctx.strokeStyle = COL.leg;
+  ctx.lineWidth = Math.max(1, L * 0.09);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    for (let k = 0; k < 4; k++) {
+      const swing = Math.sin(s.phase + k * Math.PI / 2 + (side > 0 ? Math.PI : 0)) * 0.28 * s.moving;
+      const th = side * (0.45 + k * 0.62) + swing;
+      const bx = (0.22 - k * 0.07) * L, by = side * 0.12 * L;
+      const kx = bx + Math.cos(th - side * 0.25) * 0.75 * L, ky = by + Math.sin(th - side * 0.25) * 0.75 * L;
+      const fx = bx + Math.cos(th + side * 0.2) * 1.35 * L, fy = by + Math.sin(th + side * 0.2) * 1.35 * L;
+      ctx.moveTo(bx, by); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy);
+    }
+  }
+  ctx.stroke();
+  const plump = 0.8 + Math.min(2, Math.max(0, s.e)) * 0.18;
+  ctx.fillStyle = COL.rust;
+  ctx.beginPath(); ctx.ellipse(-0.5 * L, 0, 0.55 * L * plump, 0.42 * L * plump, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0.18 * L, 0, 0.3 * L, 0.25 * L, 0, 0, TAU); ctx.fill();
+  // the pale cross of a garden spider
+  ctx.strokeStyle = COL.caught; ctx.globalAlpha = 0.75;
+  ctx.lineWidth = Math.max(1, L * 0.07);
+  ctx.beginPath();
+  ctx.moveTo(-0.78 * L * plump, 0); ctx.lineTo(-0.26 * L, 0);
+  ctx.moveTo(-0.55 * L, -0.2 * L * plump); ctx.lineTo(-0.55 * L, 0.2 * L * plump);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, board.width, board.height);
+  drawSilk();
+  drawCells();
+  for (const s of spiders) drawSpider(s);
+}
+
+function drawChart() {
+  const w = chart.width, h = chart.height, pad = 4;
+  cctx.clearRect(0, 0, w, h);
+  cctx.strokeStyle = COL.rule; cctx.lineWidth = 1;
+  cctx.beginPath();
+  for (let g = 1; g < 4; g++) { const y = Math.round(h * g / 4) + 0.5; cctx.moveTo(0, y); cctx.lineTo(w, y); }
+  cctx.stroke();
+  const n = hist.cells.length;
+  if (n < 2) return;
+  const line = (arr, color) => {
+    const max = Math.max(1, ...arr);
+    cctx.strokeStyle = color; cctx.lineWidth = Math.max(1.5, w / 260);
+    cctx.beginPath();
+    arr.forEach((v, i) => {
+      const x = (i / 399) * w, y = h - pad - (v / max) * (h - pad * 2);
+      i ? cctx.lineTo(x, y) : cctx.moveTo(x, y);
+    });
+    cctx.stroke();
+    const lx = ((n - 1) / 399) * w, ly = h - pad - (arr[n - 1] / max) * (h - pad * 2);
+    cctx.fillStyle = color; cctx.beginPath(); cctx.arc(lx, ly, cctx.lineWidth * 1.8, 0, TAU); cctx.fill();
+  };
+  line(hist.cells, COL.lichen);
+  line(hist.spiders, COL.rust);
+}
+
+const $ = id => document.getElementById(id);
+function renderStats() {
+  $('s-gen').textContent = gen.toLocaleString();
+  $('s-cells').textContent = (hist.cells[hist.cells.length - 1] ?? 0).toLocaleString();
+  $('s-spiders').textContent = spiders.length;
+  $('s-eaten').textContent = eaten.toLocaleString();
+  $('s-caught').textContent = caught.length;
+  let sc = 0; for (let i = 0; i < N; i++) if (silk[i] > SILK_T) sc++;
+  $('s-silk').textContent = (sc / N * 100).toFixed(1) + '%';
+  drawChart();
+}
+
+// ---------- loop ----------
+let last = performance.now(), statT = 0;
+function frame(t) {
+  const dt = Math.min(0.1, (t - last) / 1000); last = t;
+  if (running) advance(dt * gps);
+  draw();
+  statT += dt;
+  if (statT > 0.2) { statT = 0; renderStats(); }
+  requestAnimationFrame(frame);
+}
+
+// ---------- input ----------
+const tool = () => document.querySelector('input[name=tool]:checked').value;
+let drawing = false, paintValue = 1;
+const hints = {
+  cells: 'Drag to draw cells. Space plays or pauses, the period key steps one generation.',
+  spider: 'Click to drop a spider. It starts hungry.',
+  silk: 'Drag to lay silk. No cell can be born on it, and live cells there are caught.',
+  erase: 'Drag to clear cells, silk and spiders.'
+};
+document.querySelectorAll('input[name=tool]').forEach(r => r.addEventListener('change', () => { $('hint').textContent = hints[tool()]; }));
+
+function cellAt(e) {
+  const r = board.getBoundingClientRect();
+  return [(e.clientX - r.left) / r.width * C, (e.clientY - r.top) / r.height * R];
+}
+function apply(e, first) {
+  const [fx, fy] = cellAt(e), x = Math.floor(fx), y = Math.floor(fy);
+  if (x < 0 || y < 0 || x >= C || y >= R) return;
+  const t = tool();
+  if (t === 'cells') {
+    if (first) paintValue = cells[y * C + x] ? 0 : 1;
+    cells[y * C + x] = paintValue;
+  } else if (t === 'spider') {
+    if (first && spiders.length < MAX_SPIDERS) spiders.push(makeSpider(fx, fy, 0.9));
+  } else if (t === 'silk') {
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!dx || !dy) { const i = idx(x + dx, y + dy); silk[i] = 1; }
+  } else {
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const i = idx(x + dx, y + dy); cells[i] = 0; silk[i] = 0; }
+    spiders = spiders.filter(s => Math.hypot(wrapD(s.x - fx, C), wrapD(s.y - fy, R)) > 1.8);
+  }
+  updateCaught();
+}
+board.addEventListener('pointerdown', e => { drawing = true; board.setPointerCapture(e.pointerId); apply(e, true); });
+board.addEventListener('pointermove', e => { if (drawing) apply(e, false); });
+board.addEventListener('pointerup', () => { drawing = false; });
+board.addEventListener('pointercancel', () => { drawing = false; });
+
+function setRunning(v) { running = v; $('play').textContent = v ? 'Pause' : 'Play'; }
+$('play').addEventListener('click', () => setRunning(!running));
+function stepOnce() { setRunning(false); advance(1 - acc + 1e-9); renderStats(); }
+$('step').addEventListener('click', stepOnce);
+$('reset').addEventListener('click', () => scene($('preset').value));
+$('preset').addEventListener('change', () => scene($('preset').value));
+$('speed').addEventListener('input', e => { gps = +e.target.value; $('gps').textContent = gps + ' g/s'; });
+document.addEventListener('keydown', e => {
+  if (e.target.closest('select, input[type=range]')) return;
+  if (e.code === 'Space') { e.preventDefault(); setRunning(!running); }
+  else if (e.key === '.') stepOnce();
+});
+window.addEventListener('resize', () => { fit(); drawChart(); });
+
+// ---------- boot (keeps the garden across live updates) ----------
+window.claude?.hot?.snapshot?.(() => ({
+  cells: Array.from(cells), silk: Array.from(silk), spiders, gen, eaten,
+  hist: { cells: hist.cells.slice(), spiders: hist.spiders.slice() }
+}));
+function start(data) {
+  fit();
+  if (data && data.cells && data.cells.length === N) {
+    cells.set(data.cells); silk.set(data.silk); spiders = data.spiders || []; gen = data.gen || 0; eaten = data.eaten || 0;
+    hist.cells.push(...(data.hist?.cells || [])); hist.spiders.push(...(data.hist?.spiders || []));
+    updateCaught(); renderStats();
+  } else scene('soup');
+  setRunning(running);
+  requestAnimationFrame(t => { last = t; frame(t); });
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
